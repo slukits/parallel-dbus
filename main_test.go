@@ -27,6 +27,16 @@ func (s *RequestHandler) Fails_on_unknown_sub_command(t *T) {
 		mckFatal(t, &Env{}, expPnc, &expErr), subCmd))
 }
 
+func (s *RequestHandler) Fails_on_failing_device_retrieval(t *T) {
+	expPnc, expErr := "fatal mock panic", ""
+	defer func() {
+		t.Eq(expPnc, recover().(string))
+		t.Contains(expErr, ErrDeviceNotFound.Error())
+	}()
+	handleRequest(mckEnvVar(mckArgs(
+		mckFatal(t, &Env{}, expPnc, &expErr)), "unknown"))
+}
+
 func TestRequestHandler(t *testing.T) {
 	t.Parallel()
 	Run(&RequestHandler{}, t)

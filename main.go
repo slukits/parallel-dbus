@@ -15,7 +15,7 @@ SYNOPSIS
 
 DESCRIPTION
 
-	If wifi is called without one of its subcommands this help is shown.
+	If wifi is called without any arguments this help is shown.
 	Only one subcommand at a time may be used.  The used wifi adapter 
 	for the subcommands defaults to the first found active wifi adapter
 	if neither an environment variable is set nor an adapter option is
@@ -44,9 +44,11 @@ COMMAND LINE OPTIONS
 
 	--wifi-adapter='DEVICE-NAME'
 		lets you set the used wifi-adapter e.g.:
-			--wifi-adapter='wlan0'
-		Note the --wifi-adapter option overwrites a set 
-		WIFI_ADAPTER environment variable.
+
+			$ wifi scan --wifi-adapter='wlan0'
+
+		Note the --wifi-adapter option overwrites a set WIFI_ADAPTER 
+		environment variable.
 `
 
 const subErr = `
@@ -54,7 +56,17 @@ wifi: error: unknown sub-command: '%s'
 call wifi without any argument to see its help.
 `
 
+const deviceErr = `
+wifi: error: device retrieval: %v
+call wifi without any argument to see its help.
+`
+
 func handleRequest(env *Env) {
+	dev, err := env.Device()
+	if err != nil {
+		env.Fatal(fmt.Sprintf(deviceErr, err))
+	}
+	_ = dev
 	switch env.Sub() {
 	case ZeroSub:
 		env.Println(help)
