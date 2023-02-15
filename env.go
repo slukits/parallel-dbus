@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"time"
 
 	nm "github.com/Wifx/gonetworkmanager/v2"
 	"github.com/godbus/dbus/v5"
@@ -19,7 +20,7 @@ type Env struct {
 
 	// Lib provides library functions which may fail or exit execution,
 	// e.g. fmt.Println, log.Fatal or nm.NewNetworkManager.
-	Lib Lib
+	Lib EnvLib
 
 	// libInit indicates if Lib-property has been set to its defaults
 	// where not mocked.  NOTE the Lib-property is set only once to its
@@ -32,7 +33,7 @@ type Env struct {
 
 // lib set the defaults for library functions and system environment
 // evaluation.
-func (e *Env) lib() Lib {
+func (e *Env) lib() EnvLib {
 	if !e.libInit {
 		e.libInit = true
 		if e.Lib.Println == nil {
@@ -52,6 +53,9 @@ func (e *Env) lib() Lib {
 		}
 		if e.Lib.NewWifiDevice == nil {
 			e.Lib.NewWifiDevice = nm.NewDeviceWireless
+		}
+		if e.Lib.NewWifiAdapter == nil {
+			e.Lib.NewWifiAdapter = e.newWifiAdapter
 		}
 	}
 	return e.Lib
@@ -172,11 +176,12 @@ func (e *Env) namedDevice(name string) (*WifiAdapter, error) {
 		if err != nil {
 			return nil, fmt.Errorf("%w: %w", ErrWifiDeviceState, err)
 		}
-		if state != nm.NmDeviceStateActivated {
+		if state != nm.NmDeviceStateActivated &&
+			state != nm.NmDeviceStateDisconnected {
 			return nil, fmt.Errorf("%w: '%s' %w",
 				ErrWifiDevice, name, ErrNotActivated)
 		}
-		return &WifiAdapter{dev: wd, name: name}, nil
+		return e.lib().NewWifiAdapter(wd, name), nil
 	}
 	return nil, fmt.Errorf("%w: '%s' %w",
 		ErrWifiDevice, name, ErrDeviceNotFound)
@@ -211,17 +216,28 @@ func (e *Env) defaultDevice() (*WifiAdapter, error) {
 		if err != nil {
 			return nil, fmt.Errorf("%w: %w", ErrWifiDeviceState, err)
 		}
-		if state != nm.NmDeviceStateActivated {
+		if state != nm.NmDeviceStateActivated &&
+			state != nm.NmDeviceStateDisconnected {
 			continue
 		}
 		name, err := wd.GetPropertyInterface()
 		if err != nil {
 			return nil, fmt.Errorf("%w: %w", ErrDeviceName, err)
 		}
-		return &WifiAdapter{dev: wd, name: name}, nil
+		return e.lib().NewWifiAdapter(wd, name), nil
 	}
 	return nil, fmt.Errorf("%w: %s", ErrWifiDevice,
 		"no active wifi adapter")
+}
+
+func (e *Env) newWifiAdapter(
+	d nm.DeviceWireless, n string,
+) *WifiAdapter {
+	return &WifiAdapter{
+		Timeout: 5 * time.Second,
+		name:    n,
+		dev:     d,
+	}
 }
 
 var ErrDeviceName = errors.New("env: nm: wifi device: name")
@@ -243,9 +259,9 @@ func (e *Env) nm() (nm.NetworkManager, error) {
 	return e._nm, nil
 }
 
-// Lib provides standard library functions and system-properties which
+// EnvLib provides standard library functions and system-properties which
 // should be mockable to simplify testing.
-type Lib struct {
+type EnvLib struct {
 
 	// Println defaults to fmt.Println
 	Println func(vv ...interface{}) (int, error)
@@ -264,6 +280,9 @@ type Lib struct {
 
 	// NewWifiDevice defaults to gonetworkmanager.NewDeviceWireless
 	NewWifiDevice func(dbus.ObjectPath) (nm.DeviceWireless, error)
+
+	// NewWifiAdapter defaults to Env.newWifiAdapter
+	NewWifiAdapter func(nm.DeviceWireless, string) *WifiAdapter
 }
 
 type SubCommand string

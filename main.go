@@ -61,13 +61,35 @@ wifi: error: device retrieval: %v
 call wifi without any argument to see its help.
 `
 
+const scanErr = `
+wifi: error: scan '%s': %v
+call wifi without any argument to see its help.
+`
+
+const disconnectErr = `
+wifi: error: disconnect '%s': %v
+call wifi without any argument to see its help.
+`
+
 func handleRequest(env *Env) {
 	dev, err := env.Device()
 	if err != nil {
 		env.Fatal(fmt.Sprintf(deviceErr, err))
 	}
-	_ = dev
 	switch env.Sub() {
+	case ScanSub:
+		aa, err := dev.Scan()
+		if err != nil {
+			env.Fatal(fmt.Sprintf(scanErr, dev.DeviceName(), err))
+		}
+		for _, a := range aa {
+			env.Println(fmt.Sprintf(
+				"SSID: %s, strength: %d", a.SSID, a.Strength))
+		}
+	case DisconnectSub:
+		if err := dev.Disconnect(); err != nil {
+			env.Fatal(fmt.Sprintf(disconnectErr, dev.DeviceName(), err))
+		}
 	case ZeroSub:
 		env.Println(help)
 	default:
