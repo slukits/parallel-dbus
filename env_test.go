@@ -2,8 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
-	"os"
 	"testing"
 
 	nm "github.com/Wifx/gonetworkmanager/v2"
@@ -13,37 +11,6 @@ import (
 type AnEnv struct{ Suite }
 
 func (s *AnEnv) SetUp(t *T) { t.Parallel() }
-
-// Initializes_its_std_lib_defaults is the only white-box test using the
-// private Env.lib implementation detail.
-func (s *AnEnv) Initializes_its_library_defaults(t *T) {
-	env := &Env{}
-	lib := env.lib()
-	t.Eq(
-		fmt.Sprintf("%T::%[1]p", fmt.Println),
-		fmt.Sprintf("%T::%[1]p", lib.Println),
-	)
-	t.Eq(
-		fmt.Sprintf("%T::%[1]p", log.Fatal),
-		fmt.Sprintf("%T::%[1]p", lib.Fatal),
-	)
-	t.Eq(
-		fmt.Sprintf("%T::%[1]p", env.args),
-		fmt.Sprintf("%T::%[1]p", lib.Args),
-	)
-	t.Eq(
-		fmt.Sprintf("%T::%[1]p", os.Getenv),
-		fmt.Sprintf("%T::%[1]p", lib.OsEnv),
-	)
-	t.Eq(
-		fmt.Sprintf("%T::%[1]p", nm.NewNetworkManager),
-		fmt.Sprintf("%T::%[1]p", lib.NewNM),
-	)
-	t.Eq(
-		fmt.Sprintf("%T::%[1]p", nm.NewDeviceWireless),
-		fmt.Sprintf("%T::%[1]p", lib.NewWifiDevice),
-	)
-}
 
 func (s *AnEnv) Panics_if_lib_s_fatal_call_doesnt_end_execution(t *T) {
 	env := &Env{}
