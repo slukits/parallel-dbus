@@ -84,7 +84,10 @@ func (s *AnEnv) Default_Device_fails_if_devices_cant_be_obtained(t *T) {
 }
 
 func (s *AnEnv) Default_device_fails_if_device_type_unobtainable(t *T) {
-	_, err := mckNMDeviceTypeErr(t, mckArgs(&Env{})).Device()
+	factory := func(d nm.Device) nm.Device {
+		return &MckDeviceTypeErr{Device: d}
+	}
+	_, err := mckNMDeviceType(t, mckArgs(&Env{}), factory).Device()
 	t.ErrIs(err, ErrDeviceType)
 	t.ErrIs(err, ErrMckDeviceType)
 }
@@ -104,9 +107,9 @@ func (s *AnEnv) Default_device_fails_if_device_state_fails(t *T) {
 }
 
 func (s *AnEnv) Default_device_fails_if_device_name_fails(t *T) {
-	_, err := mckNMDeviceNameErr(t, mckArgs(&Env{})).Device()
+	_, err := mckNMWifiDeviceNameErr(t, mckArgs(&Env{})).Device()
 	t.ErrIs(err, ErrDeviceName)
-	t.ErrIs(err, ErrMckDeviceName)
+	t.ErrIs(err, ErrMckWifiDeviceName)
 }
 
 func (s *AnEnv) Default_device_fails_if_no_active_device_found(t *T) {
@@ -134,11 +137,99 @@ func (s *AnEnv) Provides_named_device_from_command_line_argument(t *T) {
 func (s *AnEnv) Provides_named_device_from_env_variable(t *T) {
 	wd, err := (mckArgs(&Env{})).Device()
 	t.FatalOn(err)
-	// NOTE we can only see by coverage that Device() takes a different
-	// execution path with arg than without arg
 	varWD, err := mckEnvVar(mckArgs(&Env{}), wd.DeviceName()).Device()
 	t.FatalOn(err)
 	t.Eq(wd.DeviceName(), varWD.DeviceName())
+	// cover commandline argument path with more than one argument
+	wd, err = (mckArgs(&Env{}, "some-arg")).Device()
+	t.FatalOn(err)
+	varWD, err = mckEnvVar(mckArgs(&Env{}), wd.DeviceName()).Device()
+	t.FatalOn(err)
+	t.Eq(wd.DeviceName(), varWD.DeviceName())
+}
+
+func (s *AnEnv) Named_Device_fails_if_NM_unobtainable(t *T) {
+	wd, err := (mckArgs(&Env{})).Device()
+	t.FatalOn(err)
+	_, err = mckNewNMErr(mckEnvVar(mckArgs(
+		&Env{}), wd.DeviceName())).Device()
+	t.ErrIs(err, ErrNewNM)
+	t.ErrIs(err, ErrMckNewNM)
+}
+
+func (s *AnEnv) Named_Device_fails_if_devices_unobtainable(t *T) {
+	wd, err := (mckArgs(&Env{})).Device()
+	t.FatalOn(err)
+	_, err = mckNMAllDevicesErr(t, mckEnvVar(mckArgs(
+		&Env{}), wd.DeviceName())).Device()
+	t.ErrIs(err, ErrNMAllDevices)
+	t.ErrIs(err, ErrMckNMAllDevices)
+}
+
+func (s *AnEnv) Named_Device_fails_if_device_name_retrieval_fails(t *T) {
+	wd, err := (mckArgs(&Env{})).Device()
+	t.FatalOn(err)
+	_, err = mckNMDeviceNameErr(t, mckEnvVar(mckArgs(
+		&Env{}), wd.DeviceName())).Device()
+	t.ErrIs(err, ErrDeviceName)
+	t.ErrIs(err, ErrMckDeviceName)
+}
+
+func (s *AnEnv) Named_Device_fails_if_device_type_retrieval_fails(t *T) {
+	wd, err := (mckArgs(&Env{})).Device()
+	t.FatalOn(err)
+	factory := func(d nm.Device) nm.Device {
+		return &MckDeviceTypeErr{Device: d}
+	}
+	_, err = mckNMDeviceType(t, mckEnvVar(mckArgs(
+		&Env{}), wd.DeviceName()), factory).Device()
+	t.ErrIs(err, ErrDeviceType)
+	t.ErrIs(err, ErrMckDeviceType)
+}
+
+func (s *AnEnv) Named_Device_fails_if_its_type_is_not_wifi(t *T) {
+	wd, err := (mckArgs(&Env{})).Device()
+	t.FatalOn(err)
+	factory := func(d nm.Device) nm.Device {
+		return &MckDeviceTypeNotWifi{Device: d}
+	}
+	_, err = mckNMDeviceType(t, mckEnvVar(mckArgs(
+		&Env{}), wd.DeviceName()), factory).Device()
+	t.ErrIs(err, ErrWifiDevice)
+	t.ErrIs(err, ErrNoWifi)
+}
+
+func (s *AnEnv) Named_Device_fails_if_wifi_device_creation_fails(t *T) {
+	wd, err := (mckArgs(&Env{})).Device()
+	t.FatalOn(err)
+	_, err = mckNMNewWifiDeviceErr(t, mckEnvVar(mckArgs(
+		&Env{}), wd.DeviceName())).Device()
+	t.ErrIs(err, ErrNewWifiDevice)
+	t.ErrIs(err, ErrMckNewWifiDevice)
+}
+
+func (s *AnEnv) Named_Device_fails_if_state_retrieval_fails(t *T) {
+	wd, err := (mckArgs(&Env{})).Device()
+	t.FatalOn(err)
+	_, err = mckNMWifiDeviceStateErr(t, mckEnvVar(mckArgs(
+		&Env{}), wd.DeviceName())).Device()
+	t.ErrIs(err, ErrWifiDeviceState)
+	t.ErrIs(err, ErrMckWifiDeviceState)
+}
+
+func (s *AnEnv) Named_Device_fails_if_state_not_activated(t *T) {
+	wd, err := (mckArgs(&Env{})).Device()
+	t.FatalOn(err)
+	_, err = mckNMInactiveWifiDevice(t, mckEnvVar(mckArgs(
+		&Env{}), wd.DeviceName())).Device()
+	t.ErrIs(err, ErrWifiDevice)
+	t.ErrIs(err, ErrNotActivated)
+}
+
+func (s *AnEnv) Named_Device_fails_if_device_unknown(t *T) {
+	_, err := mckEnvVar(mckArgs(&Env{}), "unknown").Device()
+	t.ErrIs(err, ErrWifiDevice)
+	t.ErrIs(err, ErrDeviceNotFound)
 }
 
 func TestAnEnv(t *testing.T) {

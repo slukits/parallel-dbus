@@ -178,12 +178,12 @@ func (e *Env) namedDevice(name string) (*WifiAdapter, error) {
 		}
 		return &WifiAdapter{dev: wd, name: name}, nil
 	}
-	return nil, fmt.Errorf("%w: '%s' is %w",
-		ErrWifiDevice, name, ErrNoDevice)
+	return nil, fmt.Errorf("%w: '%s' %w",
+		ErrWifiDevice, name, ErrDeviceNotFound)
 }
 
 var ErrNoWifi = errors.New("no wifi device")
-var ErrNoDevice = errors.New("no device")
+var ErrDeviceNotFound = errors.New("device not found")
 var ErrNotActivated = errors.New("not activated")
 
 func (e *Env) defaultDevice() (*WifiAdapter, error) {

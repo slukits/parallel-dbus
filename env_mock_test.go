@@ -58,7 +58,8 @@ func mckFatal(t *gounit.T, env *Env, pnc string, prnt *string) *Env {
 
 // mckArgs mocks up the os.Args retrieval by keeping only the first
 // argument of os.Args and replacing the remaining args with given
-// arguments aa.
+// arguments aa.  Note if no args given the testing arguments are
+// removed.
 func mckArgs(env *Env, aa ...string) *Env {
 	env.Lib.Args = func() []string {
 		return append([]string{os.Args[0]}, aa...)
@@ -122,7 +123,9 @@ func mckNMAllDevicesErr(t *gounit.T, env *Env) *Env {
 	return env
 }
 
-func mckNMDeviceTypeErr(t *gounit.T, env *Env) *Env {
+func mckNMDeviceType(
+	t *gounit.T, env *Env, factory func(nm.Device) nm.Device,
+) *Env {
 	env.Lib.NewNM = func() (nm.NetworkManager, error) {
 		nm_ := mockedNM(t)
 		nm_.(*NMMock).allDevices = func() ([]nm.Device, error) {
@@ -133,7 +136,7 @@ func mckNMDeviceTypeErr(t *gounit.T, env *Env) *Env {
 				return nil, err
 			}
 			for _, d := range dd {
-				mck = append(mck, &MckDeviceTypeErr{Device: d})
+				mck = append(mck, factory(d))
 			}
 			return mck, nil
 		}
@@ -150,6 +153,42 @@ func (m *MckDeviceTypeErr) GetPropertyDeviceType() (
 	nm.NmDeviceType, error,
 ) {
 	return nm.NmDeviceTypeDummy, ErrMckDeviceType
+}
+
+type MckDeviceTypeNotWifi struct{ nm.Device }
+
+func (m *MckDeviceTypeNotWifi) GetPropertyDeviceType() (
+	nm.NmDeviceType, error,
+) {
+	return nm.NmDeviceTypeDummy, nil
+}
+
+type MckDeviceNameErr struct{ nm.Device }
+
+func mckNMDeviceNameErr(t *gounit.T, env *Env) *Env {
+	env.Lib.NewNM = func() (nm.NetworkManager, error) {
+		nm_ := mockedNM(t)
+		nm_.(*NMMock).allDevices = func() ([]nm.Device, error) {
+			mck := []nm.Device{}
+			dd, err := nm_.(*NMMock).NetworkManager.GetAllDevices()
+			if err != nil {
+				t.Fatalf("mock: device type error: %v", err)
+				return nil, err
+			}
+			for _, d := range dd {
+				mck = append(mck, &MckDeviceNameErr{Device: d})
+			}
+			return mck, nil
+		}
+		return nm_, nil
+	}
+	return env
+}
+
+var ErrMckDeviceName = errors.New("device name error mock")
+
+func (m *MckDeviceNameErr) GetPropertyInterface() (string, error) {
+	return "", ErrMckDeviceName
 }
 
 var ErrMckNewWifiDevice = errors.New("new wifi device error mock")
@@ -224,9 +263,9 @@ func (m *MckInactiveWifiDeviceState) GetPropertyState() (
 	return nm.NmDeviceStateUnavailable, nil
 }
 
-type DeviceNameErrMck struct{ nm.DeviceWireless }
+type WifiDeviceNameErrMck struct{ nm.DeviceWireless }
 
-func mckNMDeviceNameErr(t *gounit.T, env *Env) *Env {
+func mckNMWifiDeviceNameErr(t *gounit.T, env *Env) *Env {
 	env.Lib.NewNM = func() (nm.NetworkManager, error) {
 		nm_ := mockedNM(t)
 		nm_.(*NMMock).allDevices = failIAllDevicesIfNoWifi(
@@ -239,15 +278,15 @@ func mckNMDeviceNameErr(t *gounit.T, env *Env) *Env {
 			if err != nil {
 				t.Fatalf("mock: nm: wifi-device: state err: %v", err)
 			}
-			return &DeviceNameErrMck{DeviceWireless: wd}, nil
+			return &WifiDeviceNameErrMck{DeviceWireless: wd}, nil
 		}
 	return env
 }
 
-var ErrMckDeviceName = errors.New("wifi device name err mock")
+var ErrMckWifiDeviceName = errors.New("wifi device name err mock")
 
-func (m *DeviceNameErrMck) GetPropertyInterface() (string, error) {
-	return "", ErrMckDeviceName
+func (m *WifiDeviceNameErrMck) GetPropertyInterface() (string, error) {
+	return "", ErrMckWifiDeviceName
 }
 
 // failIAllDevicesIfNoWifi itself should be probably tested :)
