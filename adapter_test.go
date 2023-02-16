@@ -1,7 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"math"
+	"os"
 	"testing"
 	"time"
 
@@ -52,7 +54,7 @@ func (s *AnAdapter) Scan_fails_on_last_scan_change_timeout(t *T) {
 	adapter.Timeout = 0 * time.Second
 	_, err = adapter.Scan()
 	t.ErrIs(err, ErrAdapterScan)
-	t.ErrIs(err, ErrAdapterLastScanChangeTimeout)
+	t.ErrIs(err, ErrAdapterPropertyChangeTimeout)
 }
 
 func (s *AnAdapter) Scan_fails_on_access_points_retrieval_failure(t *T) {
@@ -95,4 +97,20 @@ func (s *AnAdapter) Scan_provides_access_points_descending_by_strength(
 func TestAnAdapter(t *testing.T) {
 	t.Parallel()
 	Run(&AnAdapter{}, t)
+}
+
+func TestDisconnectAndReconnect(t_ *testing.T) {
+	t := NewT(t_)
+	if os.Args[len(os.Args)-1] != "all" {
+		fmt.Println("TestDisconnectAndReconnect skipped; " +
+			"call 'go test -args all' to include this test")
+		t_.SkipNow()
+	}
+	_, adapter := mockedDevice(t)
+	ssid, err := adapter.Active()
+	t.FatalOn(err)
+	t.FatalOn(adapter.Disconnect())
+	t.Not.True(adapter.IsActivated())
+	t.FatalOn(adapter.Connect(ssid))
+	t.True(adapter.IsActivated())
 }

@@ -94,15 +94,15 @@ const ENV_ADAPTER = "WIFI_ADAPTER"
 
 // Device evaluates the program arguments, environment variables and the
 // NetworkManager to determine a wifi-adapter and returns it;  Device
-// fails if no active wifi-adapter is found.  Device evaluates all
-// possible options in the following order:
+// fails if no active or disconnected wifi-adapter is found.  Device
+// evaluates all possible options in the following order:
 //   - if the last commandline argument has the ADAPTER_PREFIX Env tries
 //     to use this adapter and fails if something goes wrong
 //   - is no commandline argument given Env checks for the ENV_ADAPTER os
 //     environment variable and tries to use set value failing if given
 //     name is not an active wifi device
 //   - is also no environment variable given WifiAdapter defaults to the
-//     first active wifi-adapter which can be obtained from the
+//     first active or disconnected wifi-adapter which can be obtained from the
 //     NetworkManager
 func (e *Env) Device() (*WifiAdapter, error) {
 	adapter, err := e.argDevice()
@@ -120,6 +120,13 @@ func (e *Env) Device() (*WifiAdapter, error) {
 		return adapter, nil
 	}
 	return e.defaultDevice()
+}
+
+func (e *Env) SSID() string {
+	if len(os.Args) < 3 {
+		return ""
+	}
+	return os.Args[2]
 }
 
 func (e *Env) argDevice() (*WifiAdapter, error) {
@@ -234,9 +241,10 @@ func (e *Env) newWifiAdapter(
 	d nm.DeviceWireless, n string,
 ) *WifiAdapter {
 	return &WifiAdapter{
-		Timeout: 5 * time.Second,
+		Timeout: 10 * time.Second,
 		name:    n,
 		dev:     d,
+		env:     e,
 	}
 }
 
@@ -292,4 +300,6 @@ const (
 	ScanSub       SubCommand = "scan"
 	ConnectSub    SubCommand = "connect"
 	DisconnectSub SubCommand = "disconnect"
+	ActiveSub     SubCommand = "active"
+	DeleteSub     SubCommand = "delete"
 )

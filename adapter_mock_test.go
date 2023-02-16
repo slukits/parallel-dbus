@@ -68,16 +68,15 @@ func mckAdapterBusFailure(t *gounit.T) *WifiAdapter {
 }
 
 /*
-Understandably the NetworkManager is not not very happy being flooded
-with scan requests.  Hence we need to mock-up the DeviceWireless method
-RequestScan and the the library function WaitForPropertyChange to be
-run only once per test run.
+Understandably the NetworkManager is not very happy being flooded with
+scan requests.  Hence we need to mock-up the DeviceWireless method,
+RequestScan and the the library function WaitForPropertyChange to be run
+only once per test run.
 */
 
 var scanner = &sync.Mutex{}
 var hasScanned = false
 var hasWaited = false
-var wifiConstructorMocked = false
 
 type MckDevice struct {
 	nm.DeviceWireless
@@ -103,6 +102,7 @@ func mckDevices(t *gounit.T) *Env {
 				Timeout: 5 * time.Second,
 				name:    n,
 				dev:     d,
+				env:     env,
 			}
 			lib := adapter.lib()
 			defaultWaitForPropertyChange := lib.WaitForPropertyChange

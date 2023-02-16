@@ -317,7 +317,8 @@ func failIAllDevicesIfNoWifi(t *gounit.T, nm_ nm.NetworkManager) func() ([]nm.De
 				t.Fatalf(fatalStr, err)
 				return nil, err
 			}
-			if state != nm.NmDeviceStateActivated {
+			if state != nm.NmDeviceStateActivated &&
+				state != nm.NmDeviceStateDisconnected {
 				continue
 			}
 			return dd, nil
