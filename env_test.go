@@ -116,10 +116,15 @@ func (s *AnEnv) Provides_named_device_from_env_variable(t *T) {
 }
 
 func (s *AnEnv) Named_Device_fails_if_NM_unobtainable(t *T) {
-	wd, err := (mckArgs(&Env{})).Device()
+	adapter, err := (mckArgs(&Env{})).Device()
 	t.FatalOn(err)
 	_, err = mckNewNMErr(mckEnvVar(mckArgs(
-		&Env{}), wd.Name())).Device()
+		&Env{}), adapter.Name())).Device()
+	t.ErrIs(err, ErrNewNM)
+	t.ErrIs(err, ErrMckNewNM)
+	adapterArg := fmt.Sprintf("%s%s'", ADAPTER_PREFIX, adapter.Name())
+	_, err = mckNewNMErr(mckArgs(
+		&Env{}, adapterArg)).Device()
 	t.ErrIs(err, ErrNewNM)
 	t.ErrIs(err, ErrMckNewNM)
 }
@@ -197,6 +202,16 @@ func (s *AnEnv) Named_Device_fails_if_device_unknown(t *T) {
 	_, err := mckEnvVar(mckArgs(&Env{}), "unknown").Device()
 	t.ErrIs(err, ErrWifiDevice)
 	t.ErrIs(err, ErrDeviceNotFound)
+}
+
+func (s *AnEnv) Provides_second_cmd_line_arg_as_SSID(t *T) {
+	env := mckArgs(&Env{}, "first", "second")
+	t.Eq("second", env.SSID())
+}
+
+func (s *AnEnv) Has_zero_SSID_on_less_than_two_cmd_line_args(t *T) {
+	env := mckArgs(&Env{}, "first")
+	t.Eq("", env.SSID())
 }
 
 func TestAnEnv(t *testing.T) {

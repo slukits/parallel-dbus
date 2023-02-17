@@ -88,9 +88,13 @@ func (e *Env) Sub() SubCommand {
 	return SubCommand(args[1])
 }
 
+// ADAPTER_PREFIX is the prefix of the adapter commandline argument
 const ADAPTER_PREFIX = "--wifi-adapter='"
 
+// ENV_ADAPTER is the name of the adapter environment variable
 const ENV_ADAPTER = "WIFI_ADAPTER"
+
+var ErrEnvDevice = errors.New("env: determine device")
 
 // Device evaluates the program arguments, environment variables and the
 // NetworkManager to determine a wifi-adapter and returns it;  Device
@@ -107,26 +111,32 @@ const ENV_ADAPTER = "WIFI_ADAPTER"
 func (e *Env) Device() (*WifiAdapter, error) {
 	adapter, err := e.argDevice()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: %w", ErrEnvDevice, err)
 	}
 	if adapter != nil {
 		return adapter, nil
 	}
 	adapter, err = e.envDevice()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: %w", ErrEnvDevice, err)
 	}
 	if adapter != nil {
 		return adapter, nil
 	}
-	return e.defaultDevice()
+	adapter, err = e.defaultDevice()
+	if err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrEnvDevice, err)
+	}
+	return adapter, nil
 }
 
+// SSID returns given environment e's SSID commandline argument which is
+// the third argument if set or the zero string otherwise.
 func (e *Env) SSID() string {
-	if len(os.Args) < 3 {
+	if len(e.lib().Args()) < 3 {
 		return ""
 	}
-	return os.Args[2]
+	return e.lib().Args()[2]
 }
 
 func (e *Env) argDevice() (*WifiAdapter, error) {
@@ -248,12 +258,12 @@ func (e *Env) newWifiAdapter(
 	}
 }
 
-var ErrDeviceName = errors.New("env: nm: wifi device: name")
-var ErrWifiDevice = errors.New("env: nm: wifi device")
-var ErrWifiDeviceState = errors.New("env: nm: wifi device: state")
-var ErrNewWifiDevice = errors.New("env: nm: new wifi device")
-var ErrDeviceType = errors.New("env: nm: device type")
-var ErrNMAllDevices = errors.New("env: nm: all devices")
+var ErrDeviceName = errors.New("env: device: name")
+var ErrWifiDevice = errors.New("env: device")
+var ErrWifiDeviceState = errors.New("env: device: state")
+var ErrNewWifiDevice = errors.New("env: new device")
+var ErrDeviceType = errors.New("env: device type")
+var ErrNMAllDevices = errors.New("env: all devices")
 var ErrNewNM = errors.New("env: new network manager")
 
 func (e *Env) nm() (nm.NetworkManager, error) {

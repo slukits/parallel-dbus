@@ -67,7 +67,7 @@ func (a *WifiAdapter) IsActivated() bool {
 	return state == nm.NmDeviceStateActivated
 }
 
-var ErrAdapterScan = errors.New("wifi-adapter: scan error")
+var ErrAdapterScan = errors.New("adapter: scan")
 
 // AccessPoint provides the SSID and signal strength of an wifi access
 // point.
@@ -133,21 +133,23 @@ func (a *WifiAdapter) Disconnect() (err error) {
 	return a.waitForStateChange(c, nm.NmDeviceStateDisconnected)
 }
 
+var ErrAdapterActive = errors.New("adapter: get active access point")
+
 // Active returns the SSID of given wifi adapter a's connected access
 // point.
 func (a *WifiAdapter) Active() (string, error) {
 	ap, err := a.dev.GetPropertyActiveAccessPoint()
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("%w: %w", ErrAdapterActive, err)
 	}
 	ssid, err := ap.GetPropertySSID()
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("%w: %w", ErrAdapterActive, err)
 	}
 	return ssid, nil
 }
 
-var ErrAdapterConnect = errors.New("wifi-adapter: connecting error")
+var ErrAdapterConnect = errors.New("adapter: connecting")
 
 // Connect to the given wifi-adapter a to the access-point with given
 // SSID.  If no configuration settings for SSID found query a password,
@@ -155,29 +157,29 @@ var ErrAdapterConnect = errors.New("wifi-adapter: connecting error")
 func (a *WifiAdapter) Connect(SSID string) error {
 	cnn, err := a.settingsConnectionOf(SSID)
 	if err != nil {
-		return fmt.Errorf("%w: %w", ErrAdapterConnect, err)
+		return fmt.Errorf("%w: '%s': %w", ErrAdapterConnect, SSID, err)
 	}
 	c, dfr, err := a.setupSignalMatcher()
 	if err != nil {
-		return fmt.Errorf("%w: %w", ErrAdapterConnect, err)
+		return fmt.Errorf("%w: '%s': %w", ErrAdapterConnect, SSID, err)
 	}
 	defer func() { err = dfr(err, ErrAdapterConnect) }()
 	if cnn != nil {
 		if err := a.activateKnownAccessPoint(cnn, SSID); err != nil {
-			return fmt.Errorf("%w: %w", ErrAdapterConnect, err)
+			return fmt.Errorf("%w: '%s': %w", ErrAdapterConnect, SSID, err)
 		}
 		err := a.waitForStateChange(c, nm.NmDeviceStateActivated)
 		if err != nil {
-			return fmt.Errorf("%w: %w", ErrAdapterConnect, err)
+			return fmt.Errorf("%w: '%s': %w", ErrAdapterConnect, SSID, err)
 		}
 		return nil
 	}
 	if err := a.configureNewConnection(SSID); err != nil {
-		return fmt.Errorf("%w: %w", ErrAdapterConnect, err)
+		return fmt.Errorf("%w: '%s': %w", ErrAdapterConnect, SSID, err)
 	}
 	err = a.waitForStateChange(c, nm.NmDeviceStateActivated)
 	if err != nil {
-		return fmt.Errorf("%w: %w", ErrAdapterConnect, err)
+		return fmt.Errorf("%w: '%s': %w", ErrAdapterConnect, SSID, err)
 	}
 	return nil
 }
@@ -217,21 +219,24 @@ func (a *WifiAdapter) activateKnownAccessPoint(
 }
 
 var ErrAdapterConfigDel = errors.New(
-	"wifi-adapter: delete access-point configuration")
+	"adapter: delete access-point configuration")
 
 func (a *WifiAdapter) Delete(SSID string) error {
 	cnn, err := a.settingsConnectionOf(SSID)
 	if err != nil {
-		return fmt.Errorf("%w: %w", ErrAdapterConfigDel, err)
+		return fmt.Errorf("%w: '%s': %w", ErrAdapterConfigDel, SSID, err)
 	}
 	if cnn == nil {
 		return fmt.Errorf("%w: no configuration for '%s'",
 			ErrAdapterConfigDel, SSID)
 	}
-	return cnn.Delete()
+	if err := cnn.Delete(); err != nil {
+		return fmt.Errorf("%w: '%s': %w", ErrAdapterConfigDel, SSID, err)
+	}
+	return nil
 }
 
-var ErrGetAccessPoint = errors.New("wifi-adapter: get access point")
+var ErrGetAccessPoint = errors.New("get access point")
 
 func (a *WifiAdapter) accessPoint(SSID string) (nm.AccessPoint, error) {
 	aa, err := a.dev.GetPropertyAccessPoints()
@@ -256,8 +261,7 @@ func (a *WifiAdapter) accessPoint(SSID string) (nm.AccessPoint, error) {
 		}
 		return ap, nil
 	}
-	return nil, fmt.Errorf("%w: '%s' %s", ErrGetAccessPoint, SSID,
-		"not found")
+	return nil, fmt.Errorf("%w: %s", ErrGetAccessPoint, "not found")
 }
 
 // wirelessSettings key identifying connection settings for wifi access
